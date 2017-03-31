@@ -52,7 +52,7 @@ static inline int gettime(char* _buffer, size_t _buffer_len)
 }
 
 //===============================================================
-//														do_rotate_file
+//do_rotate_file
 //日志回滚
 //===============================================================
 static void do_rotate_file(struct logbuffer_chain* chain)
@@ -79,7 +79,7 @@ static void do_write_log(struct logbuffer_chain* chain)
 	if ( ! stat(chain->file, &st) && (st.st_size >= g_max_size))
 		do_rotate_file(chain); 
 	
-	fprintf(stdout, "[do_write_log] chain->off %d\n", chain->off);
+	fprintf(stdout, "[do_write_log] chain->off %ld\n", chain->off);
 	if (chain->off <= 0) {
 		chain->off = 0;
 		LOGBUFFER_LOCK_LEAVE(chain->lock);
@@ -110,7 +110,7 @@ static void do_write_log(struct logbuffer_chain* chain)
 }
 
 //===============================================================
-//														pthread_log
+//pthread_log
 //日志处理线程
 //===============================================================
 static void* pthread_log(void* param)
@@ -145,7 +145,6 @@ static void* pthread_log(void* param)
 					LOGBUFFER_LOCK_LEAVE(chain->lock);
 					continue;
 				}
-				
 				wlen = fwrite(chain->buffer, 1, chain->off, fp);
 				if (wlen < 0) {
 					fprintf(stderr, "[do_write_log] fwrite %s failed, errno:[%d]\n", chain->file, errno);
@@ -174,7 +173,7 @@ static void* pthread_log(void* param)
 }
 
 //===============================================================
-//														init_log
+//init_log
 //初始化日志：创建日志模块和日志处理线程
 //===============================================================
 void init_log(void)
@@ -192,11 +191,12 @@ void init_log(void)
 }
 
 //===============================================================
-//														register_log
+//register_log
 //注册日志模块
 //===============================================================
 void register_log(int md, const char* filepath)
 {
+	//fprintf(stdout, "[register_log] [%s]\n", filepath);
 	unsigned int i = 0;
 	struct stat st;
 	char path[256] = {'\0'};
@@ -412,7 +412,7 @@ static void stop_show_log_hander(int signum)
 }
 
 //===============================================================
-//														show_log_file_record
+//show_log_file_record
 //显示日志文件记录
 //	fname:日志文件名
 //	keywords:日志类型(alarm,error,info,debug)

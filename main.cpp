@@ -9,16 +9,17 @@ int main()
 {
 	/* log config */
 	int g_nLogLevel = SYS_LOG_ALL;	//设置日志显示级别（ALM, ERR, INFO, DBG）
-	int g_nForeground = 1;	//设置日志显示方式（0：后台，1：前台）
+	int g_nForeground;	//设置日志显示方式（0：后台，1：前台）
+	int errno = 3;
 	
 	/*前台日志显示 */
+	g_nForeground = 1;
 	fprintf(stdout, "show log_info foreground\n");
 	log_alarm(getpid(), "show log_alarm...\n");
-	int errno = 3;
 	log_error(errno, "show log_error...\n");
 	log_info(0, "show log_info...\n");
 	log_debug(0, "show log_debug...\n");
-	
+
 	/*后台日志显示 */
 	fprintf(stdout, "\nshow log_info background\n");
 	g_nForeground = 0;
@@ -36,9 +37,10 @@ int main()
 	log_info(0, "show log_info...\n");
 	log_debug(0, "show log_debug...\n");
 	
+	sleep (5);
 	char *outbuf=NULL;
 	//show_log_file_record(&outbuf, argv[1], argv[2], argv[3], atoi(argv[4]), atoi(argv[5]));
-	show_log_file_record(&outbuf, log_filename, "info", "2015-06-07 17:36:21--2015-06-12 01:13:10", 1, 200);
+	show_log_file_record(&outbuf, log_filename, "info", "2017-03-31 22:04:54--2017-03-31 22:04:54", 1, 200);
 	if (outbuf)
 		printf("%s\n", outbuf);
 	return 0;
