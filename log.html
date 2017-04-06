@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>日志管理模块</title>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<link rel="stylesheet" href="html/css/jquery/jquery-ui.min.css"/>
+	<link rel="stylesheet" href="html/css/bootstrap/bootstrap.min.css"/>
+	<link rel="stylesheet" href="html/css/bootstrap/bootstrap-datetimepicker.min.css"/>
+	<link rel="stylesheet" href="html/css/fontawesome/font-awesome.min.css"/>
+	<link rel="stylesheet" href="html/css/mcustomscrollbar/jquery.mCustomScrollbar.css"/>
+	<link rel="stylesheet" href="html/css/animate/animate.min.css"/>
+	<link rel="stylesheet" type="text/css" id="theme" href="html/css/theme-default.css"/>
+	<!--[if lt IE 9]>
+	<script src="js/html5shiv.min.js"></script>
+	<script src="js/respond.min.js"></script>
+	<![endif]-->
+	<script type="text/javascript" src="html/js/jquery-1.10.2.min.js"></script>
+	<script type="text/javascript" src="html/js/kkpager.min.js"></script>
+	<link rel="stylesheet" type="text/css" href="html/css/kkpager_blue.css" />
+		
+	<script type="text/javascript">
+		
+		var Cookies = {};
+		/** 设置Cookies */
+		Cookies.set = function(name, value) {
+		    var argv = arguments;
+		    var argc = arguments.length;
+		    document.cookie = name + "=" + escape(value);
+		};
+		 
+		/** 读取Cookies */
+		Cookies.get = function(name) {
+			var arg = name + "=";
+			var alen = arg.length;
+			var clen = document.cookie.length;
+			var i = 0;
+			var j = 0;
+			while (i < clen) {
+			j = i + alen;
+			if (document.cookie.substring(i, j) == arg)
+				return Cookies.getCookieVal(j);
+			i = document.cookie.indexOf(" ", i) + 1;
+			if (i == 0)
+				break;
+			}
+			return null;
+		};
+		 
+		/** 清除Cookies */
+		Cookies.clear = function(name) {
+	    if (Cookies.get(name)) {
+	      var expdate = new Date();
+	      expdate.setTime(expdate.getTime() - (86400 * 1000 * 1));
+	      Cookies.set(name, "", expdate);
+	    }
+		};
+		
+		Cookies.getCookieVal = function(offset) {
+	    var endstr = document.cookie.indexOf(";", offset);
+	    if (endstr == -1) {
+	  		endstr = document.cookie.length;
+	    }
+	    return unescape(document.cookie.substring(offset, endstr));
+		};
+		
+		window.onload = updatelog;
+		var pages = 1;
+		var filepath = "/www/log/syslog.log";
+		var per_page = 10;
+		var level = "";
+		var date = "";
+		var all_lines = "";
+		var all_pages = "";
+		var sendstr = "";
+		
+		function updatelog()
+		{
+			clearlog();
+			//获取该Cookie的值
+      var searchtime = Cookies.get('searchtime');
+      if(searchtime != null && searchtime != "") {
+      	date = searchtime;
+      	var date_start = date.substr(0,16);
+      	var date_end = date.substr(date.indexOf("--")+2, 16);
+      	$("#dp-1").val(date_start);
+      	$("#dp-2").val(date_end);
+      }else{
+      	date = "";
+      }
+			sendstr = "filepath="+filepath+"&level="+level+"&date="+date+"&pages="+pages+"&per_page="+per_page;
+			$.ajax({
+				type:"POST",
+				url:"./cgi-bin/show_log.cgi?"+sendstr,
+				data:sendstr,
+				success:function(msg)
+				{
+					msg = msg.split("\n");
+					var idx = 1
+					for(i=0;i<msg.length-2;i++)
+					{
+						var loginfo = msg[i].split("[");
+						var len = loginfo[1].indexOf("]");
+						var date_m = loginfo[1].substr(0,len);
+						$("#date"+idx).html(date_m);
+						len=loginfo[2].indexOf("]");
+						var level = loginfo[2].substr(0,len);
+						if(level == "info")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append("<span class=' btn btn-info'>info</span>");
+						}
+						else if(level == "debug")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append("<span class=' btn btn-primary'>debug</span>");
+						}
+						else if(level == "error")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append(" <span class=' btn btn-danger'>error</span>");
+						}	
+						else if(level == "warning")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append(" <span class=' btn btn-warning'>warning</span>");
+						}					
+						
+						$("#info"+idx).html(loginfo[2].slice(len+1));
+						idx++;
+					}
+					all_lines = msg[msg.length-2];
+					all_pages = Math.ceil(all_lines/per_page);
+					showpages(all_pages, all_lines);
+				}
+			});
+		}
+		
+		function getParameter(name) { 
+			var reg = new RegExp("(^|&)"+ name +"=([^&]*)(&|$)"); 
+			var r = window.location.search.substr(1).match(reg); 
+			if (r!=null) return unescape(r[2]); return null;
+		}
+	
+		function showpages(totalPage, totalRecords)
+		{
+			var pageNo = getParameter('pno');
+			if(!pageNo){
+				pageNo = 1;
+			}
+			kkpager.generPageHtml({
+				pno : pageNo,
+				total : totalPage,
+				totalRecords : totalRecords,
+				hrefFormer : 'log',
+				hrefLatter : '.html',
+				getLink : function(n){
+					return this.hrefFormer + this.hrefLatter + "?pno="+n;
+				}
+			},true);
+			searchlog(pageNo);
+		}	
+		
+		function clearlog()
+		{
+			for(i=1;i<=10;i++){
+				$("#date"+i).html("0000-00-00 00:00:00");
+				$("#level"+i).children("span").remove();
+	      $("#level"+i).append("<span class=' btn btn-info'>info</span>");
+				$("#info"+i).html("");
+			}
+		}	
+		
+		function searchlog(page_num)
+		{
+			clearlog();
+			var date_start = $("#dp-1").val();
+			var date_end = $("#dp-2").val();
+			if(date_start != "" && date_end != "") {
+				date = date_start+":00"+"--"+date_end+":00";
+			}
+			pages = page_num;
+			sendstr = "filepath="+filepath+"&level="+level+"&date="+date+"&pages="+pages+"&per_page="+per_page;
+			$.ajax({
+				type:"POST",
+				url:"./cgi-bin/show_log.cgi?"+sendstr,
+				data:sendstr,
+				success:function(msg)
+				{
+					msg = msg.split("\n");
+					var idx = 1
+					for(i=0;i<msg.length-2;i++)
+					{
+						var loginfo = msg[i].split("[");
+						var len = loginfo[1].indexOf("]");
+						var date_m = loginfo[1].substr(0,len);
+						$("#date"+idx).html(date_m);
+						len=loginfo[2].indexOf("]");
+						var level = loginfo[2].substr(0,len);
+						if(level == "info")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append("<span class=' btn btn-info'>info</span>");
+						}
+						else if(level == "debug")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append("<span class=' btn btn-primary'>debug</span>");
+						}
+						else if(level == "error")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append(" <span class=' btn btn-danger'>error</span>");
+						}	
+						else if(level == "warning")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append(" <span class=' btn btn-warning'>warning</span>");
+						}					
+						
+						$("#info"+idx).html(loginfo[2].slice(len+1));
+						idx++;
+					}
+				}
+			});
+		}
+		
+		function update_timelog()
+		{
+			clearlog();
+			var level = "";
+			var date_start = $("#dp-1").val();
+			var date_end = $("#dp-2").val();
+			if(date_start != "" && date_end != "") {
+				date = date_start+":00"+"--"+date_end+":00";
+        Cookies.set('searchtime', date);
+			} else {
+				date = "";
+				Cookies.set('searchtime', "");
+			}
+			pages = 1;
+			sendstr = "filepath="+filepath+"&level="+level+"&date="+date+"&pages="+pages+"&per_page="+per_page;
+			$.ajax({
+				type:"POST",
+				url:"./cgi-bin/show_log.cgi?"+sendstr,
+				data:sendstr,
+				success:function(msg)
+				{
+					msg = msg.split("\n");
+					var idx = 1
+					for(i=0;i<msg.length-2;i++)
+					{
+						var loginfo = msg[i].split("[");
+						var len = loginfo[1].indexOf("]");
+						var date = loginfo[1].substr(0,len);
+						$("#date"+idx).html(date);
+						len=loginfo[2].indexOf("]");
+						var level = loginfo[2].substr(0,len);
+						if(level == "info")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append("<span class=' btn btn-info'>info</span>");
+						}
+						else if(level == "debug")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append("<span class=' btn btn-primary'>debug</span>");
+						}
+						else if(level == "error")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append(" <span class=' btn btn-danger'>error</span>");
+						}	
+						else if(level == "warning")
+						{
+							$("#level"+idx).children("span").remove();
+	          	$("#level"+idx).append(" <span class=' btn btn-warning'>warning</span>");
+						}					
+						
+						$("#info"+idx).html(loginfo[2].slice(len+1));
+						idx++;
+					}
+					all_lines = msg[msg.length-2];
+					all_pages = Math.ceil(all_lines/per_page);
+					$("#kkpager").remove();
+					$("#pager").append("<div id='kkpager'></div>");
+					showpages(all_pages, all_lines);
+				}
+			});
+		}
+		
+		function download_log()
+		{
+			var down = 1;
+			var downloadstr = "download="+down;
+			$.ajax({
+				type:"POST",
+				url:"./cgi-bin/show_log.cgi?"+downloadstr,
+				data:downloadstr,
+				success:function(msg)
+				{
+					//alert(msg);
+					if(msg.charAt(0)==0)
+					{
+						$("#downlog").attr("href","log.tar.gz");
+					} else {
+						alert("日志文件导出失败");
+					}
+				}
+			});	
+		}
+	</script>
+</head>
+<body>
+<div class="page-container">
+    <div>
+        <ul class="breadcrumb">
+            <li class="active">日志管理</li>
+        </ul>
+        <div class="page-content-wrap">
+            <div class="row">
+                <form class="form-horizontal">
+                    <div class="col-md-12">
+                        <div class="panel panel-default">
+                            <div class="panel-body">
+                                <div class="row">
+                                    <div class="form-group">
+                                        <div class="rep-days">
+                                            <label class="col-md-1  control-label text-nowrap text-left">时间段</label>
+
+                                            <div class="col-md-3">
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="dp-1">
+                                                    <span class="input-group-addon add-on"><span
+                                                            class="glyphicon glyphicon-calendar"></span></span>
+                                                </div>
+                                            </div>
+                                            <div class="my-text">至</div>
+                                            <div class="col-md-3">
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control" id="dp-2">
+                                                    <span class="input-group-addon add-on"><span
+                                                            class="glyphicon glyphicon-calendar"></span></span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div class="col-md-3">
+                                            <button type="button" class="btn btn-info" onclick="update_timelog();">
+                                                <i class="fa fa-search"></i>查询
+                                            </button>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div class="panel-body panel-body-table">
+                                <table class="table table-bordered table-striped table-actions">
+                                    <thead>
+                                    <tr>
+                                        <th width="50" class="text-center">序号</th>
+                                        <th width="160" class="text-center">日期</th>
+                                        <th width="100" class="text-center">类型</th>
+                                        <th class="text-center">日志记录</th>
+                                    </tr>
+                                    </thead>
+                                    <tbody>
+                                    <tr>
+                                        <td class="text-center">1</td>
+                                        <td id="date1">0000-00-00 00:00:00</td>
+                                        <td id="level1"><span class=" btn btn-info">info</span></td>
+                                        <td id="info1">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">2</td>
+                                        <td id="date2">0000-00-00 00:00:00</td>
+                                        <td id="level2"><span class=" btn btn-info">info</span></td>
+                                        <td id="info2">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">3</td>
+                                        <td id="date3">0000-00-00 00:00:00</td>
+                                        <td id="level3"><span class=" btn btn-info">info</span></td>
+                                        <td id="info3">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">4</td>
+                                        <td id="date4">0000-00-00 00:00:00</td>
+                                        <td id="level4"><span class=" btn btn-info">info</span></td>
+                                        <td id="info4">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">5</td>
+                                        <td id="date5">0000-00-00 00:00:00</td>
+                                        <td id="level5"><span class=" btn btn-info">info</span></td>
+                                        <td id="info5">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">6</td>
+                                        <td id="date6">0000-00-00 00:00:00</td>
+                                        <td id="level6"><span class=" btn btn-info">info</span></td>
+                                        <td id="info6">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">7</td>
+                                        <td id="date7">0000-00-00 00:00:00</td>
+                                        <td id="level7"><span class=" btn btn-info">info</span></td>
+                                        <td id="info7">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">8</td>
+                                        <td id="date8">0000-00-00 00:00:00</td>
+                                        <td id="level8"><span class=" btn btn-info">info</span></td>
+                                        <td id="info8">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">9</td>
+                                        <td id="date9">0000-00-00 00:00:00</td>
+                                        <td id="level9"><span class=" btn btn-info">info</span></td>
+                                        <td id="info9">
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td class="text-center">10</td>
+                                        <td id="date10">0000-00-00 00:00:00</td>
+                                        <td id="level10"><span class=" btn btn-info">info</span></td>
+                                        <td id="info10">
+                                        </td>
+                                    </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div id="pager" style="width:800px;margin:0 auto;">
+															<div id="kkpager"></div>
+														</div>
+                            <div class="panel-footer">
+                                 <a id="downlog" class="btn btn-primary" onclick="download_log();">导出
+                                	<span class="fa fa-sign-out fa-right"></span></a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="message-box animated fadeIn" data-sound="alert" id="mb-signout">
+    <div class="mb-container">
+        <div class="mb-middle">
+            <div class="mb-title"><span class="fa fa-power-off"></span> 退出 ?</div>
+            <div class="mb-content">
+                <p>确定退出地磁管理平台 ?</p>
+            </div>
+            <div class="mb-footer">
+                <div class="pull-right">
+                    <a href="index.html" class="btn btn-success btn-lg">退出</a>
+                    <button class="btn btn-default btn-lg mb-control-close">取消</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="text/javascript" src="html/js/plugins/jquery/jquery.min.js"></script>
+<script type="text/javascript" src="html/js/plugins/jquery/jquery-ui.min.js"></script>
+<script type="text/javascript" src="html/js/plugins/bootstrap/bootstrap.min.js"></script>
+<script type="text/javascript" src="html/js/plugins/mcustomscrollbar/jquery.mCustomScrollbar.min.js"></script>
+<script type="text/javascript" src="html/js/plugins/bootstrap/bootstrap-datetimepicker.min.js"></script>
+<script type="text/javascript" src="html/js/plugins/bootstrap/bootstrap-datetimepicker.zh-CN.js"></script>
+<script type="text/javascript" src="html/js/plugins/bootstrap/bootstrap-select.js"></script>
+<script type="text/javascript" src="html/js/plugins/placeholder/jquery.placeholder.min.js"></script>
+<script type="text/javascript" src="html/js/plugins.js"></script>
+<script type="text/javascript" src="html/js/actions.js"></script>
+<script>
+  $(function () {
+    $('#dp-1,#dp-2').datetimepicker({
+        language: 'zh-CN',
+        weekStart: 1,
+        todayBtn: 1,
+        autoclose: 1,
+        todayHighlight: 1,
+        startView: 2,
+        forceParse: 0,
+        showMeridian: 1
+    });
+  });
+</script>
+</body>
+</html>
